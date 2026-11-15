@@ -2,17 +2,22 @@
 
 Publish how many AI chats you have per day, and nothing else.
 
-`beacon.mjs` is one zero-dependency file. It counts your Claude Code and Codex
-chats from their local transcripts and writes `beacon.json`:
+`beacon.sh` is one short shell script with no dependencies: only `sh`, `find`,
+`grep`, `awk` and `date`, which every Mac and Linux machine has. It counts your
+Claude Code and Codex chats from their local transcripts and writes `beacon.json`:
 
 ```json
 {
   "schema": 1,
   "name": "anonymous",
-  "updated": "2026-11-12T01:55Z",
+  "updated": "2026-11-15T18:53Z",
   "harnesses": {
-    "claude-code": { "daily": { "2026-11-10": 14 } },
-    "codex":       { "daily": { "2026-11-10": 6 } }
+    "claude-code": { "daily": {
+      "2026-11-10": 14
+    } },
+    "codex": { "daily": {
+      "2026-11-10": 6
+    } }
   }
 }
 ```
@@ -26,20 +31,30 @@ Monthly and yearly totals are sums of `daily`; readers compute them.
 - **Codex**: one rollout per chat under `~/.codex/sessions/YYYY/MM/DD/`. The date comes
   from the path; the file is never opened.
 
+`CLAUDE_CONFIG_DIR` and `CODEX_HOME` are respected if you moved those folders.
+
 It never reads or publishes message text, prompts, project names, folders or
-times of day. Only harness names, local dates and counts leave your machine.
-Read the file; it is short on purpose.
+times of day. Before anything is written, every line must be a known harness,
+a `YYYY-MM-DD` date and a whole number, or it is dropped. Read the script;
+it is short on purpose.
+
+Daily counts still show which days you work, and roughly how much. Publish
+only if you are fine with that.
+
+## Your history
 
 Harnesses delete old transcripts (Claude Code after 30 days by default), so
-each run merges with the previous `beacon.json` and a day keeps its highest
-count. Keep that file around.
+the script keeps every day it has counted in `history.tsv`, one
+`harness date count` line each, and a day keeps its highest count.
+`beacon.json` is generated from it. Keep `history.tsv`; it is your record.
+
+A resumed Claude Code chat starts a new transcript that begins with the old
+chat's timestamp, so it counts again on its original day.
 
 ## Use
 
-Requires Node 18+.
-
 ```bash
-node beacon.mjs                      # writes and prints beacon.json
+./beacon.sh                          # writes and prints beacon.json
 ```
 
 To publish, create a public gist once with the [GitHub CLI](https://cli.github.com):
@@ -51,7 +66,7 @@ gh gist create --public beacon.json  # prints the gist id
 Then:
 
 ```bash
-BEACON_NAME=yourname BEACON_GIST=<id> node beacon.mjs --publish
+BEACON_NAME=yourname BEACON_GIST=<id> ./beacon.sh --publish
 ```
 
 Your beacon is at `https://gist.githubusercontent.com/<you>/<id>/raw/beacon.json`.
@@ -68,8 +83,8 @@ launchd agent at `~/Library/LaunchAgents/local.beacon.plist` publishes every
 <key>Label</key>                <string>local.beacon</string>
 <key>ProgramArguments</key>
 <array>
-  <string>/opt/homebrew/bin/node</string>
-  <string>/path/to/beacon/beacon.mjs</string>
+  <string>/bin/sh</string>
+  <string>/path/to/beacon/beacon.sh</string>
   <string>--publish</string>
 </array>
 <key>EnvironmentVariables</key>
@@ -86,6 +101,8 @@ launchd agent at `~/Library/LaunchAgents/local.beacon.plist` publishes every
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.beacon.plist   # start
 launchctl bootout gui/$(id -u)/local.beacon                                   # stop
 ```
+
+On Linux, a cron entry does the same: `*/15 * * * * BEACON_GIST=<id> /path/to/beacon/beacon.sh --publish`.
 
 ## License
 
